@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: chaos-ebpf-ds
+  labels:
+    app: chaos-ebpf
+spec:
+  selector:
+    matchLabels:
+      app: chaos-ebpf
+  template:
+    metadata:
+      labels:
+        app: chaos-ebpf
+    spec:
+      containers:
+      - image: philipab/traffic-shaper-ebpf:0.02.12
+        name: chaos-pod
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["IPC_LOCK", "CAP_NET_ADMIN"]
+        volumeMounts:
+        - name: host-network-ns
+          mountPath: /host/ns
+        - name: bpf-filesystem
+          mountPath: /sys/fs/bpf
+      volumes:
+      - name: host-network-ns
+        hostPath:
+          path: /proc/1/ns
+      - name: bpf-filesystem
+        hostPath:
+          path: /sys/fs/bpf
+      dnsPolicy: ClusterFirst
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: NotIn
+                values:
+                - "true"
+      restartPolicy: Always
