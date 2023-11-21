@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package networkfilter;
+
+option go_package = "github.com/philipab/ebpf-proto/grpc/protos/networkfilter";
+
+// The service definition
+service NetworkFilter {
+    rpc EnableNetworkFilter(EnableTrafficShaperRequest) returns (Response);
+    rpc DisableNetworkFilter(DisableRequest) returns (Response);
+    rpc ControlTicker(TickerRequest) returns (Response);
+    rpc EnableBandwidthManager(BWRequest) returns (Response);
+    rpc DisableBandwidthManager(DisableTcRequest) returns (Response);
+    rpc EnableDuplicationGen(DuplRequest) returns (Response);
+    rpc DisableDuplicationGen(DisableTcRequest) returns (Response);
+    rpc EnableBitflipGen(BitflipRequest) returns (Response);
+    rpc DisableBitflipGen(DisableTcRequest) returns (Response);
+    rpc EnableDelayGen(DelayRequest) returns (Response);
+    rpc DisableDelayGen(DisableRequest) returns (Response);
+}
+
+// @enable: true to enable, false to disable
+message TickerRequest {
+    bool enable = 1;
+    string filter = 2;
+    string namespace = 3;
+}
+
+// Every chaos engineering RPC request should have the option to restrict it to certain network interfaces, ports etc. ...
+// @namespace: "HOST", "CONTAINER" or a specific network namespace name --- default: "HOST"
+// @interface: "ALL", "DOCKER", "CNI", "ETH", "LO" --- required --- the specified network interface(s)
+// @enable_ipv4: Specify if the ebpf program should be applied to IPv4 traffic
+// @enable_ipv6: Specify if the ebpf program should be applied to IPv6 traffic
+// @ipv4_range: Specify an IPv4 range that should be exempted from the ebpf program, e.g. "10.42.0.0"
+// @ipv4_mask: An IPv4 mask to compare x number of significant bits, e. g. 255.255.0.0 would compare against the first 16 bits
+// @ipv6_range: an IPv6 ip address space that the @ip value should be compared against, e. g. "2001:cafe:42:0::"
+// @ipv6_mask: An IPv6 mask to compare x number of significant bits, e. g. "FFFF:FFFF:FFFF:0::" would compare against the first 16 bits
+// @enable_icmp: Specify if the ebpf program should be applied to ICMP traffic
+// @enable_tcp: Specify if the ebpf program should be applied to TCP traffic
+// @enable_udp: Specify if the ebpf program should be applied to UDP traffic
+// @ports: Specify a list of ports the ebpf program should be applied to - by default it processes all ports
+message Filter {
+    string namespace = 1;
+    string interface = 2;
+    bool enable_ipv4 = 3;
+    bool enable_ipv6 = 4;
+    repeated string ipv4_range = 5;
+    string ipv4_mask = 6;
+    repeated string ipv6_range = 7;
+    string ipv6_mask = 8;
+    bool enable_icmp = 9;
+    bool enable_tcp = 10;
+    bool enable_udp = 11;
+    repeated uint32 ports = 12;
+}
+
+// Request to traffic shaper
+// @filter: Refer to the filter documentation above
+// @drop_rate: Packet drop rate in of packet shaper in % 
+message EnableTrafficShaperRequest {
+    Filter filter = 1;
+    optional uint32 drop_rate = 2;
+}
+
+// To disable xdp ebpf programs or programs with only 1 valid traffic direction,
+// it is sufficient to specify the namespace and network interface
+// @namespace: "HOST", "CONTAINER" or a specific network namespace name --- default: "HOST"
+// @interface: "ALL", "DOCKER", "CNI", "ETH", "LO" --- required --- the specified network interface(s)
+message DisableRequest {
+    string namespace = 1;
+    string interface = 2;
+}
+
+// To disable tc ebpf programs with traffic direction,
+// it is additionally necessary to provide if it is detached from ingress or egress
+// @namespace: "HOST", "CONTAINER" or a specific network namespace name --- default: "HOST"
+// @interface: "ALL", "DOCKER", "CNI", "ETH", "LO" --- required --- the specified network interface(s)
+// @traffic_direction: TRUE means this process is detached from egress traffic, false from ingress traffic
+message DisableTcRequest {
+    string namespace = 1;
+    string interface = 2;
+    bool traffic_direction = 3;
+}
+
+// Request to Bandwidth manager
+// @filter: Refer to the filter documentation above
+// @bandwidth: The bandwidth in bytes per second
+// @traffic_direction: TRUE means this process is applied to egress traffic, false to ingress traffic
+message BWRequest {
+    Filter filter = 1;
+    optional uint64 bandwidth = 2;
+    bool traffic_direction = 3;
+}
+
+// Request to Duplication Generator
+// @filter: Refer to the filter documentation above
+// @duplication_rate: rate in % that packets are randomly duplicated (default 5%)
+// @traffic_direction: TRUE means this process is applied to egress traffic, false to ingress traffic
+message DuplRequest {
+    Filter filter = 1;
+    optional uint32 duplication_rate = 2;
+    bool traffic_direction = 3;
+}
+
+// Request to Duplication Generator
+// @filter: Refer to the filter documentation above
+// @delay: artificial delay in ms --- default 500ms
+// @jitter: artificial jitter in ms --- default 0
+// @drop_horizon: if packet is delayed by more than drop_horizon, it is automatically dropped,
+// it can only be provided if jitter != 0 and drop_horizon < delay + jitter --- default: 0
+// @traffic_direction: TRUE means this process is applied to egress traffic, false to ingress traffic
+message DelayRequest {
+    Filter filter = 1;
+    optional uint32 delay = 2;
+    optional uint32 jitter = 3;
+    optional uint32 drop_horizon = 4;
+}
+
+// Request to Duplication Generator
+// @filter: Refer to the filter documentation above
+// @bitflip_probability: probability in % that bitflip occurs (default 5%)
+// @recalc_checksum: enable/disable checksum recalculation
+// @traffic_direction: TRUE means this process is applied to egress traffic, false to ingress traffic
+message BitflipRequest {
+    Filter filter = 1;
+    optional uint32 bitflip_probability = 2;
+    optional bool recalc_checksum = 3;
+    bool traffic_direction = 4;
+}
+
+// Message that represents a response
+message Response {
+    bool success = 1;
+    string message = 2;
+}

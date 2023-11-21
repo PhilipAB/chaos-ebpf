@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "bpf_helpers.h": "c",
+        "state-tables.h": "c",
+        "config-bpf-maps.h": "c",
+        "config_bpf_maps.h": "c",
+        "config.h": "c",
+        "vmlinux.h": "c",
+        "ip_addr.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled",
+    "go.toolsEnvVars": {
+        "GOOS": "linux",
+        "GOARCH": "arm"
+    }
+}
