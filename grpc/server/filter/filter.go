@@ -128,6 +128,14 @@ func UpdateFilterMaps(filter *nf.Filter, obj *FilterMapSpecs) error {
 		}
 	}
 
+	if ports := filter.GetPorts(); ports != nil {
+		for i := uint32(0); i < uint32(len(ports)); i++ {
+			if err := obj.PortMap.Update(&i, &ports[i], 0); err != nil {
+				return fmt.Errorf("failed updating Port map: %v", err)
+			}
+		}
+	}
+
 	ipv4MaskString := filter.GetIpv4Mask()
 	if ipv4MaskString == "" {
 		ipv4MaskString = "255.255.0.0"
