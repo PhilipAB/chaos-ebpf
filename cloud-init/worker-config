@@ -1,0 +1,12 @@
+#cloud-config
+
+runcmd:
+  - |
+    #!/bin/bash
+    # Extract cube number
+    CUBE_NUMBER=$(hostname | grep -oP '(?<=cube)\\d+(?=-)')
+    # Install k3s as worker node
+    # SSH into master node and retrieve node token
+    MASTER_TOKEN=$(ssh -o StrictHostKeyChecking=no robot@cube${CUBE_NUMBER}-head.local 'cat /var/lib/rancher/k3s/server/node-token')
+    # Join cluster
+    curl -sfL https://get.k3s.io | K3S_URL=https://cube${CUBE_NUMBER}-head.local:6443 K3S_TOKEN=${MASTER_TOKEN} sh -

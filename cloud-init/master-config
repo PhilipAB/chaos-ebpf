@@ -1,0 +1,83 @@
+# cloud-init-config
+
+# create 'robot' user with SSH key access
+users:
+  - name: robot
+    gecos: Robot1
+    primary_group: robot
+    groups: [users, sudo]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - <robot-ssh-key>
+
+# use writeFiles for creating DaemonSet and Service files
+write_files:
+  - path: /root/chaos-ebpf-ds.yaml
+    content: |
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: chaos-ebpf-ds
+        labels:
+          app: chaos-ebpf
+      spec:
+        selector:
+          matchLabels:
+            app: chaos-ebpf
+        template:
+          metadata:
+            labels:
+              app: chaos-ebpf
+          spec:
+            containers:
+            - image: philipab/traffic-shaper-ebpf:0.02.12
+              name: chaos-pod
+              securityContext:
+                privileged: true
+                capabilities:
+                  add: ["IPC_LOCK", "CAP_NET_ADMIN"]
+              volumeMounts:
+              - name: host-network-ns
+                mountPath: /host/ns
+              - name: bpf-filesystem
+                mountPath: /sys/fs/bpf
+            volumes:
+            - name: host-network-ns
+              hostPath:
+                path: /proc/1/ns
+            - name: bpf-filesystem
+              hostPath:
+                path: /sys/fs/bpf
+            dnsPolicy: ClusterFirst
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: node-role.kubernetes.io/master
+                      operator: NotIn
+                      values:
+                      - "true"
+            restartPolicy: Always
+
+  - path: /root/chaos-ebpf-svc.yaml
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: chaos-ebpf-svc
+      spec:
+        clusterIP: None
+        selector:
+          app: chaos-ebpf
+        ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 8080
+
+runcmd:
+  - curl -sfL https://get.k3s.io | sh -
+  - mkdir -p /var/lib/rancher/k3s
+  - kubectl apply -f /root/chaos-ebpf-ds.yaml
+  - kubectl apply -f /root/chaos-ebpf-svc.yaml
