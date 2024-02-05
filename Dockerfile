@@ -1,5 +1,7 @@
-# Use an ARM golang base image
-FROM arm64v8/golang:1.21.0-bullseye
+# Stage 1: Introduce builder stage for installation of dependencies + compilation to eBPF Byte Programs
+# Use an ARM golang base image // distribution is not relevant but may impact how to install
+# llvm, clanq the required headers etc.
+FROM arm64v8/golang:1.21.0-bullseye as builder
 
 # Install llvm, clang, and required headers
 RUN apt-get update && apt-get install -y clang llvm libbpf-dev && mkdir /usr/include/asm && \
@@ -7,7 +9,6 @@ RUN apt-get update && apt-get install -y clang llvm libbpf-dev && mkdir /usr/inc
         ln -s "$file" "/usr/include/asm/$(basename $file)"; \
     done
 
-# Set up Go environment
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -20,8 +21,15 @@ RUN go generate ./ebpf/delay
 RUN go generate ./ebpf/duplication
 RUN go generate ./ebpf/tshaper
 
-# Build your Go application
-RUN go build -o trafficshaper ./grpc/
+# Build Go application
+RUN CGO_ENABLED=0 GOARCH=arm64 go build -o trafficshaper ./grpc/
 
-# Set up the command to run your application
+# Stage 2: Use a "clean" new image, to reduce build size
+FROM debian:bullseye-slim
+
+WORKDIR /app
+
+# Copy the built application from the previous stage
+COPY --from=builder /app/trafficshaper /app/
+
 CMD [ "./trafficshaper" ]
