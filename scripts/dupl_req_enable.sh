@@ -61,11 +61,11 @@ while [ "$#" -gt 0 ]; do
             ipv4_mask=$2
             shift 2
             ;;
-        --duplication_rate)
+        --duplication-rate)
             duplication_rate=$2
             shift 2
             ;;
-        --traffic_direction)
+        --traffic-direction)
             traffic_direction=$2
             shift 2
             ;;
