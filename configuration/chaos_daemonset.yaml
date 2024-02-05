@@ -14,7 +14,7 @@ spec:
         app: chaos-ebpf
     spec:
       containers:
-      - image: philipab/traffic-shaper-ebpf:0.02.12
+      - image: philipab/traffic-shaper-ebpf:0.02.16
         name: chaos-pod
         securityContext:
           privileged: true
