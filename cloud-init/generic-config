@@ -1,0 +1,101 @@
+#cloud-config
+
+# create 'robot' user with SSH key access
+users:
+  - name: robot
+    gecos: Robot1
+    primary_group: robot
+    groups: [users, sudo]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - <robot-ssh-key>
+
+# if there is a seperate cloud init config for master and worker nodes, 
+# we could also use writeFiles instead, only for the master node cloud config
+# additionally we would safe the step in runcmd to differentiate between the two
+runcmd:
+  - |
+    #!/bin/bash
+    # check if master node
+    if [[ $(hostname) == *"-head"* ]]; then
+        # Install k3s as master node
+        curl -sfL https://get.k3s.io | sh -
+        # save node token for workers to join
+        mkdir -p /var/lib/rancher/k3s
+        cp /var/lib/rancher/k3s/server/node-token /var/lib/rancher/k3s/node-token
+
+        # create DaemonSet and Service files ... we do this here, to do it conditionally
+        # this is also only needed for the masternode ...
+        cat <<EOF > /root/chaos-ebpf-ds.yaml
+        apiVersion: apps/v1
+        kind: DaemonSet
+        metadata:
+          name: chaos-ebpf-ds
+          labels:
+            app: chaos-ebpf
+        spec:
+          selector:
+            matchLabels:
+              app: chaos-ebpf
+          template:
+            metadata:
+              labels:
+                app: chaos-ebpf
+            spec:
+              containers:
+              - image: philipab/traffic-shaper-ebpf:0.02.12
+                name: chaos-pod
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add: ["IPC_LOCK", "CAP_NET_ADMIN"]
+                volumeMounts:
+                - name: host-network-ns
+                  mountPath: /host/ns
+                - name: bpf-filesystem
+                  mountPath: /sys/fs/bpf
+              volumes:
+              - name: host-network-ns
+                hostPath:
+                  path: /proc/1/ns
+              - name: bpf-filesystem
+                hostPath:
+                  path: /sys/fs/bpf
+              dnsPolicy: ClusterFirst
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: NotIn
+                        values:
+                        - "true"
+              restartPolicy: Always
+        EOF
+        cat <<EOF > /root/chaos-ebpf-svc.yaml
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: chaos-ebpf-svc
+        spec:
+          clusterIP: None
+          selector:
+            app: chaos-ebpf
+          ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 8080
+        EOF
+        kubectl apply -f /root/chaos-ebpf-ds.yaml
+        kubectl apply -f /root/chaos-ebpf-svc.yaml
+    else
+        # extract cube number
+        CUBE_NUMBER=$(hostname | grep -oP '(?<=cube)\\d+(?=-)')
+        # install k3s as worker node
+        # SSH into master node + retrieve node token
+        MASTER_TOKEN=$(ssh -o StrictHostKeyChecking=no robot@cube${CUBE_NUMBER}-head.local 'cat /var/lib/rancher/k3s/node-token')
+        # join cluster
+        curl -sfL https://get.k3s.io | K3S_URL=https://cube${CUBE_NUMBER}-head.local:6443 K3S_TOKEN=${MASTER_TOKEN} sh -
+    fi
