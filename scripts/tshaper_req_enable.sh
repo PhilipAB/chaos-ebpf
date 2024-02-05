@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # default values for JSON payload parameters
-interface="lo"
+interface="ETH"
 namespace="HOST"
-enable_ipv4=false
+enable_ipv4=true
 enable_ipv6=true
-enable_icmp=true
-enable_tcp=true
+enable_icmp=false
+enable_tcp=false
 enable_udp=true
-ipv4_range="127.0.0.1"
+ipv4_range="127.1.1.1"
 ipv4_mask="255.255.255.255"
 drop_rate=5
+port=5201
 
 # check the number of arguments provided
 if [ "$#" -lt 1 ]; then
@@ -88,7 +89,7 @@ fi
 echo "Pod IP: $pod_ip"
 
 # dynamically constructing JSON payload 
-json_payload="{\"filter\": {\"interface\": \"$interface\", \"namespace\": \"$namespace\", \"enable_ipv4\": $enable_ipv4, \"enable_ipv6\": $enable_ipv6, \"enable_icmp\": $enable_icmp, \"enable_tcp\": $enable_tcp, \"enable_udp\": $enable_udp, \"ipv4_range\": [\"$ipv4_range\"], \"ipv4_mask\": \"$ipv4_mask\"}, \"drop_rate\": $drop_rate}"
+json_payload="{\"filter\": {\"interface\": \"$interface\", \"namespace\": \"$namespace\", \"enable_ipv4\": $enable_ipv4, \"enable_ipv6\": $enable_ipv6, \"enable_icmp\": $enable_icmp, \"enable_tcp\": $enable_tcp, \"enable_udp\": $enable_udp, \"ipv4_range\": [\"$ipv4_range\"], \"ipv4_mask\": \"$ipv4_mask\", \"ports\": [\"$port\"]}, \"drop_rate\": $drop_rate}"
 
 # query the gRPC-Service
 sudo docker run --network host fullstorydev/grpcurl -plaintext -d "$json_payload" $pod_ip:8080 networkfilter.NetworkFilter/EnableNetworkFilter
