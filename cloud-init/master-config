@@ -1,4 +1,4 @@
-# cloud-init-config
+#cloud-config
 
 # create 'robot' user with SSH key access
 users:
