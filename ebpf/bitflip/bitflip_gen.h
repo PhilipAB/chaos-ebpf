@@ -49,7 +49,7 @@ static __always_inline void process_bitflip(void *data, struct __sk_buff *skb, v
             bpf_skb_store_bytes(skb, payload_offset, &flipped_byte, 1, 0);
         } else {
             // recalculate checksum and store the modified packet
-            // bpf_skb_store_bytes(skb, payload_offset, &flipped_byte, sizeof(flipped_byte), BPF_F_RECOMPUTE_CSUM);
+            bpf_skb_store_bytes(skb, payload_offset, &flipped_byte, sizeof(flipped_byte), BPF_F_RECOMPUTE_CSUM);
             return;
         }
     }
