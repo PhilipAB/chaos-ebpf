@@ -11,6 +11,14 @@ Welcome to chaos-ebpf, a powerful and flexible solution designed to enhance the 
 - **Knowledge Requirements**: While the tool abstracts away the complexities of eBPF, a solid understanding of networking is necessary to use it effectively and safely.
 - **Current Limitations**: This tool is only a prototype and still in beta stage. Some functions were only implemented partly and need to be refined in the future. Before releasing a 1.0 version, the chaining of eBPF needs to be implemented and thus supported fully. Moreover, the packet corruption function is under development due to challenges with the eBPF verifier. I am actively troubleshooting this issue.
 
+**Update - 06.02.2024**: During testing applying the newly created [chaos scenario](/scripts/chaos_scenario_1.sh) it was determined, that the port filtering for the **bandwidth manager** is only working for TCP and not for UDP. Maybe this problem lies within the [config.h file](/ebpf/config/config.h) during port processing (line 205 - 278) but further debugging is needed to fix this error. Port filtering for TCP is more important since this ensures, that our API is still accessable. But port filtering for UDP is also desireable ... right now for the bandwidth manager it just works along all ports for UDP. The interesting/weird thing is, that the packet loss generator is not affected by this. For this chaos function, the port filtering works without problems. Further testing is needed for the other chaos functions (Delay/Jitter generator and duplication generator... is this a general problem with our eBPF programs using the TC hook?)
+
+During a recent testing phase applying the newly created [chaos scenario](/scripts/chaos_scenario_1.sh), unfortunately I encountered a new issue. It has been observed that the port filtering functionality of the bandwidth manager only works correctly for TCP traffic, with UDP traffic not being filtered as expected. This discrepancy might be rooted in the port processing segment of our [config.h file](/ebpf/config/config.h) file (specifically lines 205 to 278). Further investigation and debugging are required to address this issue.
+
+It's important to note that TCP port filtering remains a critical feature to maintain accessibility to our API. However, achieving UDP port filtering is also a goal, as it currently defaults to a state where our chaos function is not applied at all to UDP traffic, if port filtering is activated. Interestingly, the packet loss generator does not exhibit this issue, indicating that port filtering operates as intended for this specific chaos function.
+
+It is necessary continuing to test other chaos functions, including the Delay/Jitter generator and the duplication generator, to ascertain if this is a broader issue affecting our eBPF programs utilizing the TC hook. Further updates will be provided as the investigation progresses.
+
 ## Current release
 The publicly available and offical container image can be found [here](https://hub.docker.com/repository/docker/philipab/chaos-ebpf). The newest release tag is [0.3.0-beta](https://hub.docker.com/layers/philipab/chaos-ebpf/0.3.0-beta/images/sha256-0672b428c2dd5c20b1097fb586778c9bab03ca0f2906635256006fc4a9d0af29).
 
@@ -59,6 +67,8 @@ Examples how to use and enable/disable the chaos functions can be found in the [
 ```
 sudo sh tshaper_req_enable.sh <node-name>
 ```
+
+A good starting point to develop your own chaos scenarios is the file [chaos_scenario_1.sh](/scripts/chaos_scenario_1.sh). This script provides an example of how to simulate a gradually diminishing bandwidth, culminating in a temporary loss of connection. Such a scenario is reflective of real-world conditions, like a mobile device transitioning between mobile networks during a handover process, where it connects to a new antenna.
 
 ### Veryfying ICMP related functionality
 
