@@ -38,7 +38,7 @@ fi
 
 echo "Pod IP: $pod_ip"
 
-# disable delay generator
+# disable packet loss generator
 json_payload="{\"interface\": \"$interface\", \"namespace\": \"$namespace\"}"
 sudo docker run --network host fullstorydev/grpcurl -plaintext -d "$json_payload" $pod_ip:8080 networkfilter.NetworkFilter/DisableNetworkFilter
 
